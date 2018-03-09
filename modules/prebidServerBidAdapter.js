@@ -245,6 +245,24 @@ function _getDigiTrustQueryParams() {
   };
 }
 
+function _appendSiteAppDevice(request) {
+  if (!request) return;
+
+  // ORTB specifies app OR site
+  if (typeof config.getConfig('app') === 'object') {
+    request.app = config.getConfig('app');
+    request.app.publisher = {id: _s2sConfig.accountId}
+  } else {
+    request.site = {
+      publisher: { id: _s2sConfig.accountId },
+      page: utils.getTopWindowUrl()
+    }
+  }
+  if (typeof config.getConfig('device') === 'object') {
+    request.device = config.getConfig('device');
+  }
+}
+
 /*
  * Protocol spec for legacy endpoint
  * e.g., https://<prebid-server-url>/v1/auction
@@ -254,6 +272,7 @@ const LEGACY_PROTOCOL = {
   buildRequest(s2sBidRequest, adUnits) {
     // pbs expects an ad_unit.video attribute if the imp is video
     adUnits.forEach(adUnit => {
+      adUnit.sizes = adUnit.sizesS2S;
       const videoMediaType = utils.deepAccess(adUnit, 'mediaTypes.video');
       if (videoMediaType) {
         adUnit.video = Object.assign({}, videoMediaType);
@@ -277,13 +296,7 @@ const LEGACY_PROTOCOL = {
       is_debug: !!getConfig('debug'),
     };
 
-    // grab some global config and pass it along
-    ['app', 'device'].forEach(setting => {
-      let value = getConfig(setting);
-      if (typeof value === 'object') {
-        request[setting] = value;
-      }
-    });
+    _appendSiteAppDevice(request);
 
     let digiTrust = _getDigiTrustQueryParams();
     if (digiTrust) {
@@ -437,19 +450,13 @@ const OPEN_RTB_PROTOCOL = {
 
     const request = {
       id: s2sBidRequest.tid,
-      site: {publisher: {id: _s2sConfig.accountId}},
       source: {tid: s2sBidRequest.tid},
       tmax: _s2sConfig.timeout,
       imp: imps,
       test: getConfig('debug') ? 1 : 0,
     };
 
-    ['app', 'device'].forEach(setting => {
-      let value = getConfig(setting);
-      if (typeof value === 'object') {
-        request[setting] = value;
-      }
-    });
+    _appendSiteAppDevice(request);
 
     const digiTrust = _getDigiTrustQueryParams();
     if (digiTrust) {
@@ -544,7 +551,6 @@ export function PrebidServer() {
   /* Prebid executes this function when the page asks to send out bid requests */
   baseAdapter.callBids = function(s2sBidRequest, bidRequests, addBidResponse, done, ajax) {
     const adUnits = utils.deepClone(s2sBidRequest.ad_units);
-
     convertTypes(adUnits);
 
     // at this point ad units should have a size array either directly or mapped so filter for that
