@@ -107,20 +107,35 @@ function transformHeightWidth(adUnit) {
   return sizesObj;
 }
 
-function getAdUnitCopyForPrebidServer(adUnits) {
+function getAdUnitCopyForPrebidServer(adUnits, labels) {
   let adaptersServerSide = _s2sConfig.bidders;
   let adUnitsCopy = utils.deepClone(adUnits);
-
+  let bidsS2S = [];
   adUnitsCopy.forEach((adUnit) => {
-    adUnit.sizes = transformHeightWidth(adUnit);
+    bidsS2S = [];
+    let {active, sizes: filteredAdUnitSizes} = resolveStatus(getLabels(adUnit, labels), adUnit.sizes);
+    if (active) {
+      adUnit.sizes = filteredAdUnitSizes;
+      adUnit.sizesS2S = transformHeightWidth(adUnit);
 
-    // filter out client side bids
-    adUnit.bids = adUnit.bids.filter((bid) => {
-      return includes(adaptersServerSide, bid.bidder) && (!doingS2STesting() || bid.finalSource !== s2sTestingModule.CLIENT);
-    }).map((bid) => {
-      bid.bid_id = utils.getUniqueIdentifierStr();
-      return bid;
-    });
+      // filter out client side bids
+      adUnit.bids = adUnit.bids.filter((bid) => {
+        return includes(adaptersServerSide, bid.bidder) && (!doingS2STesting() || bid.finalSource !== s2sTestingModule.CLIENT);
+      }).map((bid) => {
+        bid.bid_id = utils.getUniqueIdentifierStr();
+        return bid;
+      });
+
+      adUnit.bids.forEach((bid) => {
+        let {active, sizes} = resolveStatus(getLabels(bid, labels), adUnit.sizes);
+        if (active) {
+          bidsS2S.push(bid);
+        }
+        sizes = null;
+      });
+
+      adUnit.bids = bidsS2S;
+    }
   });
 
   // don't send empty requests
@@ -174,7 +189,7 @@ exports.makeBidRequests = function(adUnits, auctionStart, auctionId, cbTimeout, 
       return !includes(adaptersServerSide, elm) || includes(clientTestAdapters, elm);
     });
 
-    let adUnitsS2SCopy = getAdUnitCopyForPrebidServer(adUnits);
+    let adUnitsS2SCopy = getAdUnitCopyForPrebidServer(adUnits, labels);
     let tid = utils.generateUUID();
     adaptersServerSide.forEach(bidderCode => {
       const bidderRequestId = utils.getUniqueIdentifierStr();

@@ -272,6 +272,7 @@ const LEGACY_PROTOCOL = {
   buildRequest(s2sBidRequest, adUnits) {
     // pbs expects an ad_unit.video attribute if the imp is video
     adUnits.forEach(adUnit => {
+      adUnit.sizes = adUnit.sizesS2S;
       const videoMediaType = utils.deepAccess(adUnit, 'mediaTypes.video');
       if (videoMediaType) {
         adUnit.video = Object.assign({}, videoMediaType);
@@ -550,7 +551,6 @@ export function PrebidServer() {
   /* Prebid executes this function when the page asks to send out bid requests */
   baseAdapter.callBids = function(s2sBidRequest, bidRequests, addBidResponse, done, ajax) {
     const adUnits = utils.deepClone(s2sBidRequest.ad_units);
-
     convertTypes(adUnits);
 
     // at this point ad units should have a size array either directly or mapped so filter for that
