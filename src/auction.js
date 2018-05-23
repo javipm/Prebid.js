@@ -383,6 +383,12 @@ export function getStandardBidderSettings() {
           return bidResponse.mediaType;
         }
       },
+      {
+        key: 'hb_t',
+        val: function (bidResponse) {
+          return PREBID_TIMEOUT/1000;
+        }
+      },
     ]
   }
   return bidder_settings[CONSTANTS.JSON_MAPPING.BD_SETTING_STANDARD];
